@@ -1,23 +1,39 @@
 {
   "claimed": {
-    "coverage": 0.90,
+    "coverage": 0.9412,
     "citation_verbatim_rate": 1.00,
     "ooc_refusal_rate": 1.00,
     "detected_role_violations": 0,
-    "not_permitted_rate": 1.00
+    "not_permitted_rate": 0.9524,
+    "schema_valid_rate": 1.00,
+    "fabricated_count": 0
   },
   "runs": [
     {
       "run_id": "run-01-baseline",
-      "model": "poolside/laguna-xs-2.1:free",
+      "model": "bm25-naive-prompt",
       "status": "completed",
       "raw_path": "results/raw/baseline_preds.jsonl"
     },
     {
       "run_id": "run-03-multiclass-eval",
-      "model": "poolside/laguna-xs-2.1:free",
+      "model": "cohere/north-mini-code:free",
       "status": "completed",
       "raw_path": "results/raw/dev_run_03_10q.jsonl"
+    },
+    {
+      "run_id": "run-05-full-dev-146",
+      "model": "cohere/north-mini-code:free",
+      "status": "completed",
+      "raw_path": "results/answers_dev.jsonl",
+      "report_path": "results/report_dev.json",
+      "n": 146,
+      "answered_rate_on_answerable": 0.9412,
+      "citation_verbatim_rate": 1.00,
+      "ooc_refusal_rate": 1.00,
+      "not_permitted_rate": 0.9524,
+      "role_violations": 0,
+      "fabricated_count": 0
     }
   ]
 }

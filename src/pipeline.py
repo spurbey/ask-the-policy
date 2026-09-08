@@ -100,18 +100,17 @@ class PolicyPipeline:
                 "citations": []
             }
 
-        best_passage = allowed_hits[0]
-
-        # 5. Build focused context prompt (top 1 passage, or top 2 if short)
-        context_parts = [f"Passage ({best_passage.passage_id}):\n{best_passage.text}"]
-        if len(allowed_hits) > 1 and len(best_passage.text) < 400:
-            context_parts.append(f"Passage ({allowed_hits[1].passage_id}):\n{allowed_hits[1].text}")
+        # 5. Build focused context prompt from top-k allowed passages (up to 3)
+        top_candidates = allowed_hits[:3]
+        context_parts = []
+        for cand in top_candidates:
+            context_parts.append(f"Passage ID: {cand.passage_id}\n{cand.text}")
         context_str = "\n\n---\n\n".join(context_parts)
 
         # 6. Prompt LLM
         prompt = f"""You are an enterprise compliance assistant.
-Read the passage below and answer the question as of {as_of}.
-If the passage does NOT contain the answer, respond with status "not_in_corpus".
+Read the passages below and answer the question as of {as_of}.
+If the passages do NOT contain sufficient information to answer the question, respond with status "not_in_corpus".
 Be direct, factual, and concise.
 
 {context_str}
@@ -122,9 +121,10 @@ Respond ONLY with a JSON object in this exact schema:
 {{
   "status": "answered",
   "answer": "concise factual answer",
-  "quote": "exact phrase from the passage supporting your answer"
+  "passage_id": "passage ID of the passage where you found the answer",
+  "quote": "exact phrase from that passage supporting your answer"
 }}
-If not found in the passage:
+If not found in the passages:
 {{
   "status": "not_in_corpus",
   "answer": "This information is not present in the policy book.",
@@ -149,15 +149,42 @@ If not found in the passage:
 
         answer = str(parsed.get("answer", "")).strip()
         candidate_quote = str(parsed.get("quote", "")).strip()
+        if not candidate_quote and answer:
+            candidate_quote = answer
+        preferred_pid = str(parsed.get("passage_id", "")).strip()
 
-        # Deterministic verbatim span extraction
-        verbatim_quote = find_best_verbatim_span(best_passage.text, candidate_quote)
+        matched_passage = None
+        verbatim_quote = None
+
+        # 1. Try preferred passage if identified by LLM
+        if preferred_pid:
+            for cand in top_candidates:
+                if cand.passage_id == preferred_pid:
+                    span = find_best_verbatim_span(cand.text, candidate_quote)
+                    if span:
+                        matched_passage = cand
+                        verbatim_quote = span
+                        break
+
+        # 2. Search all candidates for the verbatim span
+        if not verbatim_quote:
+            for cand in top_candidates:
+                span = find_best_verbatim_span(cand.text, candidate_quote)
+                if span:
+                    matched_passage = cand
+                    verbatim_quote = span
+                    break
+
+        # 3. Fallback to top candidate if no quote was found
+        if not matched_passage:
+            matched_passage = top_candidates[0]
+            verbatim_quote = find_best_verbatim_span(matched_passage.text, candidate_quote)
 
         citations = []
         if verbatim_quote:
             citations.append({
-                "doc_id": best_passage.doc_id,
-                "section": best_passage.passage_id,
+                "doc_id": matched_passage.doc_id,
+                "section": matched_passage.passage_id,
                 "quote": verbatim_quote
             })
 
