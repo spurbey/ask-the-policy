@@ -53,7 +53,7 @@ class PolicyPipeline:
         # 1. Global retrieval across all passages
         raw_hits = self.retriever.search(question_text, top_k=8)
         if not raw_hits or raw_hits[0][1] < 10.0:
-            # Low confidence lexical match -> likely out of corpus
+            # Low confidence lexical match -> out of corpus
             return {
                 "id": qid,
                 "status": "not_in_corpus",
@@ -102,46 +102,39 @@ class PolicyPipeline:
 
         best_passage = allowed_hits[0]
 
-        # 5. Build context string
-        context_parts = []
-        for p in allowed_hits[:3]:
-            context_parts.append(f"Passage ID: {p.passage_id} (Document: {p.doc_id}, Role: {p.role})\nText:\n{p.text}")
+        # 5. Build focused context prompt (top 1 passage, or top 2 if short)
+        context_parts = [f"Passage ({best_passage.passage_id}):\n{best_passage.text}"]
+        if len(allowed_hits) > 1 and len(best_passage.text) < 400:
+            context_parts.append(f"Passage ({allowed_hits[1].passage_id}):\n{allowed_hits[1].text}")
         context_str = "\n\n---\n\n".join(context_parts)
 
         # 6. Prompt LLM
         prompt = f"""You are an enterprise compliance assistant.
-Read the passages below and answer the question as of {as_of}.
-Important instructions:
-- If Harbour internal policy conflicts with a regulator rule, Harbour internal policy takes precedence for Harbour agents.
-- If the passages do not answer the question or lack evidence, respond with status "not_in_corpus".
-- Keep the answer factual, precise and concise.
+Read the passage below and answer the question as of {as_of}.
+If the passage does NOT contain the answer, respond with status "not_in_corpus".
+Be direct, factual, and concise.
 
-Passages:
 {context_str}
 
 Question: {question_text}
-Requester Role: {user_role}
-As-Of Date: {as_of}
 
 Respond ONLY with a JSON object in this exact schema:
 {{
   "status": "answered",
-  "answer": "direct factual answer",
-  "section": "exact Passage ID containing the supporting evidence (e.g. {best_passage.passage_id})",
-  "quote": "key phrase from that passage supporting your answer"
+  "answer": "concise factual answer",
+  "quote": "exact phrase from the passage supporting your answer"
 }}
-If not in corpus, respond with:
+If not found in the passage:
 {{
   "status": "not_in_corpus",
   "answer": "This information is not present in the policy book.",
-  "section": "",
   "quote": ""
 }}
 """
         raw_output = self.llm.chat_completion([
-            {"role": "system", "content": "You are an expert compliance assistant. Output valid JSON only."},
+            {"role": "system", "content": "You are a concise compliance helper. Always respond in JSON."},
             {"role": "user", "content": prompt}
-        ])
+        ], max_tokens=1000)
 
         parsed = parse_json_from_llm(raw_output)
         status = parsed.get("status", "answered")
@@ -156,25 +149,15 @@ If not in corpus, respond with:
 
         answer = str(parsed.get("answer", "")).strip()
         candidate_quote = str(parsed.get("quote", "")).strip()
-        section = str(parsed.get("section", best_passage.passage_id)).strip()
-
-        # Match section to passage
-        matched_passage = None
-        for p in allowed_hits:
-            if p.passage_id == section:
-                matched_passage = p
-                break
-        if not matched_passage:
-            matched_passage = best_passage
 
         # Deterministic verbatim span extraction
-        verbatim_quote = find_best_verbatim_span(matched_passage.text, candidate_quote)
+        verbatim_quote = find_best_verbatim_span(best_passage.text, candidate_quote)
 
         citations = []
         if verbatim_quote:
             citations.append({
-                "doc_id": matched_passage.doc_id,
-                "section": matched_passage.passage_id,
+                "doc_id": best_passage.doc_id,
+                "section": best_passage.passage_id,
                 "quote": verbatim_quote
             })
 
