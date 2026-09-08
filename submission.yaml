@@ -1,0 +1,20 @@
+problem: OP-05
+handle: candidate
+repo: https://github.com/candidate/ask-the-policy-book
+commit: 4a2b1c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b
+repo_visibility: private
+leaderboard: false
+season: 1
+pins_ack: true
+models_ack: true
+claimed:
+  coverage: 0.90
+  citation_verbatim_rate: 1.00
+  ooc_refusal_rate: 1.00
+  detected_role_violations: 0
+  not_permitted_rate: 1.00
+spend:
+  results_usd: 0.00
+  compute_usd: 0.00
+  development_usd: 0.00
+hardware: "CPU laptop; no GPU"

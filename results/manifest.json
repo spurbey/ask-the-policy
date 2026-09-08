@@ -1,0 +1,23 @@
+{
+  "claimed": {
+    "coverage": 0.90,
+    "citation_verbatim_rate": 1.00,
+    "ooc_refusal_rate": 1.00,
+    "detected_role_violations": 0,
+    "not_permitted_rate": 1.00
+  },
+  "runs": [
+    {
+      "run_id": "run-01-baseline",
+      "model": "poolside/laguna-xs-2.1:free",
+      "status": "completed",
+      "raw_path": "results/raw/baseline_preds.jsonl"
+    },
+    {
+      "run_id": "run-03-multiclass-eval",
+      "model": "poolside/laguna-xs-2.1:free",
+      "status": "completed",
+      "raw_path": "results/raw/dev_run_03_10q.jsonl"
+    }
+  ]
+}
