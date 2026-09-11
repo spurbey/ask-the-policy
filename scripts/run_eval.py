@@ -109,12 +109,14 @@ def main():
         print("\n=========================================================")
         print("Running official grader.py (deterministic checks)...")
         print("=========================================================")
+        report_path = repo_root / "results" / "report_dev.json"
         cmd = [
             sys.executable,
             str(grader_path),
             "--pred", str(out_path),
             "--gold", str(gold_path),
             "--corpus", str(corpus_dir / "manifest.jsonl"),
+            "--report", str(report_path),
             "--no-judge"
         ]
         grader_env = dict(os.environ, PYTHONUTF8="1")
